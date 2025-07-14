@@ -15,10 +15,10 @@ from langgraph.prebuilt import create_react_agent
 
 ## datos de trazabilidad
 os.environ["LANGSMITH_ENDPOINT"]="https://api.smith.langchain.com"
-os.environ["LANGCHAIN_API_KEY"] = "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"
+os.environ["LANGCHAIN_API_KEY"] = "lsv2_pt_"
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_PROJECT"] = "gcpaiagent"
-os.environ["OPENAI_API_KEY"] ="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"
+os.environ["OPENAI_API_KEY"] ="sk-proj-"
 
 
 app = Flask(__name__)
@@ -31,27 +31,28 @@ def main():
     #datos de configuracion
     DB_URI = os.environ.get(
         "DB_URI",
-        "postgres://postgres:1234@34.173.40.179:5432/"
-        #"postgresql://usuario:password@0.0.0.0:5432/basededatos?sslmode=disable"
+        "postgres:"
     )
     connection_kwargs = {
         "autocommit": True,
         "prepare_threshold": 0,
     }
     db_query = ElasticsearchStore(
-        es_url="http://34.125.83.15:9200",
+        es_url="http:",
         es_user="elastic",
-        es_password="L9bWwXp639bERknDgMxK",
+        es_password="",
         index_name="menu-data",
         embedding=OpenAIEmbeddings(model="text-embedding-3-large"))
 
-    # Herramienta RAG
+    # ############### Herramienta RAG ###############
     retriever = db_query.as_retriever()
     tool_rag =retriever.as_tool(
     name ="datos_menu",
     description="Herramienta que tiene la información detallada (nombre, descripcion, precio, ingredientes, disponibilidad y categoria) de todos los productosdel menú"
     )
 
+    ############### DATOS SIMULADOS ###############
+    # Stock Simulado:
     stock_actual = {
     "Hamburguesa Clásica": 4,
     "Tacos al Pastor": 0,
@@ -60,8 +61,16 @@ def main():
     "Smoothie de Frutas": 0,
     }
 
-    from langchain.agents import tool
+    cupones_validos = {
+    "FAMILIA20": 0.20,
+    "BEBIDA10": 0.10,
+    "VEGANO15": 0.15,
+    }
 
+    ############### DATOS SIMULADOS ###############
+
+    ############### TOOLS DEL AGENTE ###############
+    from langchain.agents import tool
     @tool
     def verificar_stock(nombre_plato: str) -> str:
         """
@@ -76,12 +85,6 @@ def main():
                 return f"❌ Lo siento, el plato '{nombre_plato}' no está disponible actualmente."
         else:
             return f"🤔 No encontré el plato '{nombre_plato}' en el inventario."
-
-    cupones_validos = {
-    "FAMILIA20": 0.20,
-    "BEBIDA10": 0.10,
-    "VEGANO15": 0.15,
-    }
 
     @tool
     def aplicar_cupon(nombre_cupon: str, total: float) -> str:
@@ -121,6 +124,9 @@ def main():
         except:
             return "⚠️ No se pudo enviar la notificación. Inténtalo de nuevo."
 
+    ############### TOOLS DEL AGENTE ###############
+
+    ############### MEMORIA ###############
     # Inicializamos la memoria
     with ConnectionPool(
             # Example configuration
@@ -141,34 +147,23 @@ def main():
                 ("system",
                  """
                 Eres un asistente virtual amigable y accesible especializado en guiar a personas con discapacidad visual a través del menú de un restaurante.
-
                 Utiliza únicamente las herramientas disponibles para responder: consulta de menú (RAG), verificación de stock, aplicación de cupones y recomendación de platos similares. Si no cuentas con una herramienta específica para responder una pregunta, indícalo de forma clara y sugiere cómo podrías ayudar.
-
                 Tu objetivo es que el cliente se sienta acompañado, informado y en control de su pedido. Sé breve, claro, cálido y evita tecnicismos innecesarios. Eres paciente, empático y actúas como un asistente personal que lo guía en todo momento.
-
                 Sigue esta guía de conversación:
-
                 1. **Saludo y apertura:**
                 Da una bienvenida cordial. Pregunta si el cliente ya tiene en mente algún plato o si quiere que le leas opciones del menú por categoría (ej. entradas, principales, postres, vegetarianos, etc.).
-
                 2. **Consulta del menú:**
                 Usa la herramienta de menú para brindar información precisa. Describe brevemente cada plato mencionado: nombre, ingredientes principales, precio, y si forma parte de algún combo. Si el cliente tiene preferencias (ej. sin carne, sin lactosa), sugiere opciones que se alineen.
-
                 3. **Verificación de disponibilidad:**
                 Antes de confirmar un pedido, verifica si los platos solicitados están disponibles en stock. Si algo no está disponible, sugiere una alternativa similar usando la herramienta de recomendación.
-
                 4. **Aplicación de cupones o promociones:**
                 Si el cliente menciona un cupón o desea saber si hay promociones, usa la herramienta para aplicar descuentos o combos y muestra el precio actualizado.
-
                 5. **Resumen del pedido:**
                 Repite lo que ha seleccionado el cliente con los precios individuales y el total final. Pregunta si desea añadir algo más antes de cerrar el pedido.
-
                 6. **Cierre de atención:**
                 Agradece su tiempo y disponibilidad. Indícale cómo puede proceder para finalizar el pedido (ej. llamar al restaurante, pagar presencialmente o pedir ayuda en el local). Si el cliente necesita ayuda adicional, ofrécesela de inmediato.
-
                 7. **Estilo de comunicación:**
                 Sé cercano, conversacional y directo. Mantén frases cortas y claras. Si el cliente no entiende algo o parece confundido, repite o simplifica tu respuesta. Tu prioridad es la comodidad y accesibilidad del cliente.
-
                  """),
                 ("human", "{messages}"),
             ]
